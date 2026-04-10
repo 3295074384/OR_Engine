@@ -1,0 +1,36 @@
+# 基础 Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 虚拟环境
+venv/
+env/
+.env
+.venv
+ENV/
+env.bak/
+venv.bak/
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# IDE 与编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 项目特定：本地诊断文本、绘图缓存及 JSON 序列化结果
+tests/*.txt
+tests/*.json
+tests/*.png
+tests/*.log
+
+# Streamlit config (可选)
+.streamlit/
+
+# 保证 tests 目录下的 python 探针代码均受版本控制
+!tests/*.py
