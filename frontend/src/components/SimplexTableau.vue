@@ -14,9 +14,9 @@ function display(value: unknown) { if (value === null || value === undefined || 
 <template>
   <section class="tableau-wrap">
     <div class="tableau-meta">
-      <span>PHASE {{ display(tableau.phase) }}</span>
+      <span>第 {{ display(tableau.phase) }} 阶段</span>
       <span>z = {{ display(tableau.current_z) }}</span>
-      <span v-if="pivot">pivot: {{ display(names[enteringCol ?? -1]) }}</span>
+      <span v-if="pivot">进基：{{ display(names[enteringCol ?? -1]) }}</span>
     </div>
     <div class="table-scroll">
       <table class="tableau">

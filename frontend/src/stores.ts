@@ -38,7 +38,10 @@ export const useSolverStore = defineStore('solver', () => {
         payload.integer_vars = integer_vars
       }
       const response = await fetch(`${import.meta.env.VITE_API_BASE ?? ''}/api/solve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ problem_type: problemType.value, payload }) })
-      const data = await response.json(); if (!response.ok) throw new Error(data.detail?.[0]?.msg ?? data.error_message ?? '求解请求失败')
+      const body = await response.text()
+      let data: SolverResponse & { detail?: Array<{ msg?: string }> }
+      try { data = body ? JSON.parse(body) : {} as SolverResponse } catch { throw new Error('服务器返回了无效响应') }
+      if (!response.ok) throw new Error(data.detail?.[0]?.msg ?? data.error_message ?? '求解请求失败')
       result.value = data
     } catch (err) { error.value = err instanceof Error ? err.message : '网络请求失败，请检查 API 服务' }
     finally { loading.value = false }
