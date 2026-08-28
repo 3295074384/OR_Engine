@@ -15,6 +15,7 @@ from matplotlib.patches import Polygon
 import traceback
 
 from main import Launcher
+from base_module import to_fraction
 
 st.set_page_config(
     page_title="OR Engine 推演系统",
@@ -43,7 +44,7 @@ def plot_graphical_method(final_result):
     # 提取可行点并转为 float
     pts = []
     for pt in feasible_vertices:
-        pts.append([float(eval(pt["x1"])), float(eval(pt["x2"]))])
+        pts.append([float(to_fraction(pt["x1"])), float(to_fraction(pt["x2"]))])
         
     pts = np.array(pts)
     
@@ -61,7 +62,7 @@ def plot_graphical_method(final_result):
     
     x1_vals = np.linspace(-1, max_x1 + 2, 400)
     for L in boundary_lines:
-        a1, a2, d = float(eval(L["a1"])), float(eval(L["a2"])), float(eval(L["d"]))
+        a1, a2, d = (float(to_fraction(L[key])) for key in ("a1", "a2", "d"))
         if a2 != 0:
             x2_vals = (d - a1 * x1_vals) / a2
             ax.plot(x1_vals, x2_vals, linestyle='--', color='blue', alpha=0.3)
@@ -74,8 +75,8 @@ def plot_graphical_method(final_result):
         ax.plot(pt[0], pt[1], 'ko', markersize=5)
         
     # 标星最优解
-    opt_x1 = float(eval(solution[var_names[0]]))
-    opt_x2 = float(eval(solution[var_names[1]]))
+    opt_x1 = float(to_fraction(solution[var_names[0]]))
+    opt_x2 = float(to_fraction(solution[var_names[1]]))
     ax.plot(opt_x1, opt_x2, marker='*', markersize=20, color='red', label=f'Optimal: ({opt_x1}, {opt_x2}), Z={opt_val}')
     
     ax.set_xlim(-0.5, max_x1)

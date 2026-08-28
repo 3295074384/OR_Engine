@@ -96,11 +96,14 @@ class CuttingPlaneModule(BaseModule):
             x_vals = {k: to_fraction(v) for k, v in lp_result["final_result"]["solution"].items()}
 
             # ── Step B：检查整数性 ────────────────────────────────────────
+            tableau = simplex.get_final_tableau()
+            basis_indices = tableau["basis_indices"]
+            rhs_values = tableau["b"]
             fractional_vars = {
-                var_names[col]: simplex._raw_b[idx]   # col 是原始变量列索引，var_names[col] 取变量名
-                for idx, col in enumerate(simplex._raw_basis)
+                var_names[col]: rhs_values[idx]
+                for idx, col in enumerate(basis_indices)
                 if col < n_orig and col in integer_vars
-                   and not _is_integer(simplex._raw_b[idx])
+                   and not _is_integer(rhs_values[idx])
             }
 
             if not fractional_vars:
@@ -125,10 +128,10 @@ class CuttingPlaneModule(BaseModule):
 
             # ── Step C：生成 Gomory 割平面 ────────────────────────────────
             # 选取分数部分最大的整数基变量所在行
-            raw_A    = simplex._raw_A
-            raw_b    = simplex._raw_b
-            raw_basis = simplex._raw_basis
-            var_names_ext = simplex._raw_var_names   # 扩展变量名（含松弛/人工）
+            raw_A    = tableau["matrix_a"]
+            raw_b    = tableau["b"]
+            raw_basis = tableau["basis_indices"]
+            var_names_ext = tableau["var_names"]
 
             best_row   = -1
             best_frac  = Fraction(0)

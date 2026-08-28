@@ -25,9 +25,51 @@ base_module.py — 抽象基类 & 快照工具层
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from fractions import Fraction
 from typing import Any
 import copy
+
+
+@dataclass(frozen=True)
+class RationalNumber:
+    """JSON-safe representation of an exact rational value."""
+
+    display: str
+    numerator: int
+    denominator: int
+    decimal: float
+
+    @classmethod
+    def from_value(cls, value: Fraction | int | float | str) -> "RationalNumber":
+        fraction = to_fraction(value)
+        return cls(
+            display=fmt(fraction),
+            numerator=fraction.numerator,
+            denominator=fraction.denominator,
+            decimal=float(fraction),
+        )
+
+    def to_dict(self) -> dict[str, str | int | float]:
+        return {
+            "display": self.display,
+            "numerator": self.numerator,
+            "denominator": self.denominator,
+            "decimal": self.decimal,
+        }
+
+
+def rationalize(value: Any) -> Any:
+    """Convert Fraction values recursively to RationalNumber dictionaries."""
+    if isinstance(value, Fraction):
+        return RationalNumber.from_value(value).to_dict()
+    if isinstance(value, list):
+        return [rationalize(item) for item in value]
+    if isinstance(value, tuple):
+        return [rationalize(item) for item in value]
+    if isinstance(value, dict):
+        return {key: rationalize(item) for key, item in value.items()}
+    return value
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -185,6 +227,7 @@ STATUS_OPTIMAL    = "OPTIMAL"
 STATUS_INFEASIBLE = "INFEASIBLE"
 STATUS_UNBOUNDED  = "UNBOUNDED"
 STATUS_ERROR      = "ERROR"
+STATUS_MAX_ITER_REACHED = "MAX_ITER_REACHED"
 
 
 def build_output(
@@ -214,7 +257,7 @@ def build_output(
         "problem_type":  problem_type,
         "status":        status,
         "final_result":  final_result,
-        "iterations":    [it.to_dict() for it in iterations],
+        "iterations":    [rationalize(it.to_dict()) for it in iterations],
         "sensitivity":   sensitivity,
         "error_message": error_message,
     }

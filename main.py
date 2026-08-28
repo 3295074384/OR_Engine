@@ -99,6 +99,17 @@ class InputValidator:
         }
         raw.setdefault("options", {})
         raw.setdefault("sub_type", None)
+        raw["problem_type"] = raw["problem_type"].upper()
+        if not isinstance(raw["options"], dict):
+            raise ORValidationError("options", "'options' 必须是一个 JSON 对象（dict）")
+        if raw["problem_type"] == "LP" and raw["sub_type"] not in {None, "simplex", "graphical"}:
+            raise ORValidationError("sub_type", "LP 的 sub_type 必须为 'simplex'、'graphical' 或 null")
+        if raw["problem_type"] != "LP" and raw["sub_type"] is not None:
+            raise ORValidationError("sub_type", "sub_type 仅适用于 LP")
+        if raw["problem_type"] == "IP" and raw["options"].get("integer_method") not in {None, "branch_bound", "cutting_plane"}:
+            raise ORValidationError("options.integer_method", "必须为 'branch_bound' 或 'cutting_plane'")
+        if raw["problem_type"] != "IP" and raw["options"].get("integer_method") is not None:
+            raise ORValidationError("options.integer_method", "integer_method 仅适用于 IP")
         # 仅对缺失键填充默认值，不覆盖用户显式设定
         for key, val in defaults.items():
             raw["options"].setdefault(key, val)
@@ -142,9 +153,10 @@ class InputValidator:
 
         for i, row in enumerate(A):
             if not isinstance(row, list) or len(row) != n_vars:
+                actual_length = len(row) if isinstance(row, list) else "非列表"
                 raise ORValidationError(
                     f"payload.A[{i}]",
-                    f"第 {i} 行长度为 {len(row)}，应与 c 的长度 {n_vars} 一致"
+                    f"第 {i} 行长度为 {actual_length}，应与 c 的长度 {n_vars} 一致"
                 )
 
         if not isinstance(b, list) or len(b) != n_cons:
@@ -243,11 +255,14 @@ class InputValidator:
         if not isinstance(cm, list) or len(cm) == 0:
             raise ORValidationError("payload.cost_matrix", "成本矩阵 'cost_matrix' 不能为空")
 
-        # 允许非方阵（模块内部自动补齐虚拟行/列）
-        col_len = len(cm[0]) if cm else 0
+        col_len = None
         for i, row in enumerate(cm):
-            if not isinstance(row, list):
-                raise ORValidationError(f"payload.cost_matrix[{i}]", "矩阵每行必须是列表")
+            if not isinstance(row, list) or not row:
+                raise ORValidationError(f"payload.cost_matrix[{i}]", "矩阵每行必须是非空列表")
+            if col_len is None:
+                col_len = len(row)
+            elif len(row) != col_len:
+                raise ORValidationError("payload.cost_matrix", "成本矩阵各行列数必须一致")
 
     # ── GT payload 校验 ───────────────────────────────────────────────────
 
@@ -377,8 +392,9 @@ class Launcher:
         try:
             validated = self._validator.validate(raw_input)
         except ORValidationError as e:
+            problem_type = raw_input.get("problem_type", "UNKNOWN") if isinstance(raw_input, dict) else "UNKNOWN"
             return self._error_output(
-                raw_input.get("problem_type", "UNKNOWN"),
+                problem_type,
                 f"输入校验失败 [{e.field}]：{e.message}"
             )
 

@@ -1,0 +1,28 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { RotateCcw, Play, LoaderCircle, Zap, Activity, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-vue-next'
+import SimplexTableau from './components/SimplexTableau.vue'
+import { useSolverStore } from './stores'
+const store = useSolverStore()
+const current = computed(() => store.iterations[store.selectedStep])
+function valueText(value: any) { if (value === null || value === undefined) return '—'; if (typeof value === 'object' && value.display) return value.display; return String(value) }
+function solutionEntries() { return Object.entries(store.result?.solution ?? {}) }
+</script>
+
+<template>
+  <main class="shell">
+    <header class="topbar"><div class="brand"><div class="brand-mark"><Zap :size="18" /></div><div><strong>OR / ENGINE</strong><span>Operations research studio</span></div></div><div class="header-status"><i></i> API READY <span>v0.1</span></div></header>
+    <div class="workspace">
+      <aside class="sidebar"><div class="eyebrow">MODEL DEFINITION <span>01</span></div><h1>Build your<br /><em>problem.</em></h1><p class="lede">Configure a precise optimization model and follow every move of the engine.</p>
+        <div class="field-label">PROBLEM TYPE</div><div class="segmented"><button :class="{ active: store.problemType === 'LP' }" @click="store.problemType = 'LP'">Linear program <b>LP</b></button><button :class="{ active: store.problemType === 'IP' }" @click="store.problemType = 'IP'">Integer program <b>IP</b></button></div>
+        <div class="field-label objective-label">OBJECTIVE <span>direction</span></div><div class="objective"><button :class="{ selected: store.objective === 'max' }" @click="store.objective = 'max'">MAXIMIZE</button><button :class="{ selected: store.objective === 'min' }" @click="store.objective = 'min'">MINIMIZE</button></div>
+        <label class="field-label">COEFFICIENTS <span>c</span><input v-model="store.form.c" spellcheck="false" /></label><label class="field-label">CONSTRAINT MATRIX <span>A · one row / line</span><textarea v-model="store.form.A" rows="4" spellcheck="false" /></label><label class="field-label">RHS VALUES <span>b</span><input v-model="store.form.b" spellcheck="false" /></label><label class="field-label">CONSTRAINT SIGNS <span>comma separated</span><input v-model="store.form.constraint_types" spellcheck="false" /></label><label v-if="store.problemType === 'IP'" class="field-label">INTEGER VARIABLES <span>x1, x2</span><input v-model="store.form.integer_vars" spellcheck="false" /></label>
+        <div class="actions"><button class="run" :disabled="store.loading" @click="store.solve"><LoaderCircle v-if="store.loading" class="spin" :size="17" /><Play v-else :size="17" /> {{ store.loading ? 'SOLVING' : 'RUN SOLVER' }}</button><button class="reset" title="Reset model" @click="store.reset"><RotateCcw :size="17" /></button></div><p v-if="store.error" class="error"><AlertTriangle :size="15" /> {{ store.error }}</p>
+      </aside>
+      <section class="results"><div class="result-head"><div><div class="eyebrow">COMPUTATION TRACE <span>02</span></div><h2>{{ store.result ? 'Solution found.' : 'Awaiting a model.' }}</h2></div><div v-if="store.result" class="status-pill" :class="store.result.status === 'OPTIMAL' ? 'good' : 'warn'"><CheckCircle2 :size="15" /> {{ store.result.status }}</div></div>
+        <div v-if="!store.result" class="empty"><div class="empty-grid"></div><Activity :size="42" stroke-width="1.2" /><strong>Ready when you are</strong><span>Enter a model on the left to begin a trace.</span></div>
+        <template v-else><div class="metrics"><div><span>OBJECTIVE VALUE</span><strong>{{ valueText(store.result.objective?.value) }}</strong><small>{{ store.objective }} objective</small></div><div><span>ITERATIONS</span><strong>{{ store.result.diagnostics?.total_steps ?? store.iterations.length }}</strong><small>{{ store.result.diagnostics?.elapsed_ms ?? 0 }} ms runtime</small></div><div><span>VARIABLES</span><strong>{{ solutionEntries().length || '—' }}</strong><small>decision variables</small></div><div><span>SUB TYPE</span><strong class="subtype">{{ store.result.sub_type ?? '—' }}</strong><small>solver pathway</small></div></div><div class="solution-bar"><span>FINAL SOLUTION</span><div v-for="([key, val], index) in solutionEntries()" :key="key" class="solution-chip"><b>{{ key }}</b> {{ valueText(val) }}</div></div><div class="trace-layout"><nav class="steps"><div class="trace-title">ITERATION LOG <span>{{ store.iterations.length }} steps</span></div><button v-for="(step, index) in store.iterations" :key="index" :class="{ current: store.selectedStep === index }" @click="store.selectedStep = index"><span>{{ String(index + 1).padStart(2, '0') }}</span><div><b>{{ step.action || `Tableau ${index + 1}` }}</b><small>{{ step.state_matrix?.type === 'simplex_tableau' ? `Phase ${step.state_matrix.phase}` : 'state snapshot' }}</small></div><ChevronRight :size="15" /></button></nav><article class="trace-view"><div class="trace-view-head"><div><span>STEP {{ String(store.selectedStep + 1).padStart(2, '0') }}</span><h3>{{ current?.action || 'State snapshot' }}</h3></div><span class="type-tag">{{ current?.state_matrix?.type ?? 'iteration' }}</span></div><SimplexTableau v-if="current?.state_matrix?.type === 'simplex_tableau'" :tableau="current.state_matrix" /><pre v-else class="raw-state">{{ JSON.stringify(current?.state_matrix, null, 2) }}</pre><p v-if="current?.calculation" class="calculation">{{ current.calculation }}</p></article></div></template>
+      </section>
+    </div>
+  </main>
+</template>

@@ -3,8 +3,8 @@
 > **"不只是给出答案，更是重现思考的轨迹。"**
  
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![No Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen.svg)]()
-[![Precision](https://img.shields.io/badge/precision-100%25-orange.svg)]()
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
+[![Precision](https://img.shields.io/badge/precision-Fraction-orange.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)]()
 
 **OR_Engine** 是一个基于纯 Python 构建的轻量级、高精度运筹学算法引擎。与传统的优化器（如 Gurobi, SciPy）只返回干瘪的最终结果不同，OR_Engine 专为**教育、算法推演与解题追踪**而生。它能够生成高度结构化的 JSON 迭代快照，完美复刻人类手工计算的每一步细节。
@@ -100,9 +100,93 @@ python main.py --example gt
 
 ---
 
-## 🔮 愿景与未来：天生的前后端分离 API (Ready for Frontend)
+## 🧱 当前架构
 
-**为什么最终我们输出全结构化的 JSON？**  
-这不仅是为了数据的易读性。本引擎天生作为“推演后端引擎”，其详尽的 `iterations` 数组结构，随时准备为您的上层 Vue / React 可视化前端框架提供充足的“子弹”。
+```text
+OR_Engine/
+├── main.py                  # Launcher、输入校验与 CLI
+├── base_module.py           # BaseModule、Fraction 与 RationalNumber
+├── modules/                 # LP/IP/TP/AP/GT 算法模块
+├── schemas/                 # FastAPI/Pydantic 请求与响应模型
+├── services/                # Launcher 结果适配与统一 API 响应
+├── api/                     # FastAPI 应用与路由
+├── frontend/                # Vue 3 + Vite + Pinia 工作台
+└── tests/                   # 算法回归脚本
+```
 
-无论是做成运筹学的纯教育在线大屏，还是要给学生开发一个“单步回放演示”小程序，**OR_Engine** 都是您坚若磐石的运算引擎！
+单纯形模块使用精确 `Fraction` 的 Two-Phase Simplex。API 层将数值转换为包含 `display`、`numerator`、`denominator` 和 `decimal` 的 `RationalNumber` 对象，同时保留 `final_result.objective_value` 与 `final_result.solution` 以兼容旧调用方。
+
+## 🚀 FastAPI API
+
+安装 Python 依赖：
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+启动 API：
+
+```bash
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+可用接口：
+
+- `GET /api/health`
+- `GET /api/examples`
+- `POST /api/solve`
+- `GET /docs`
+
+`POST /api/solve` 请求示例：
+
+```json
+{
+  "problem_type": "LP",
+  "sub_type": "simplex",
+  "payload": {
+    "objective": "max",
+    "c": [2, 3],
+    "A": [[1, 2], [2, 1]],
+    "b": [14, 14],
+    "constraint_types": ["<=", "<="]
+  }
+}
+```
+
+## 🖥️ Vue 前端
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+开发服务器默认运行在 `http://localhost:5173`，并将 `/api` 代理到 `http://localhost:8000`。生产构建使用：
+
+```bash
+npm run build
+```
+
+Cloudflare Pages 只负责托管 `frontend/dist` 静态文件；Python FastAPI 必须独立部署。部署前端时，将 `VITE_API_BASE` 设置为公开 API 服务地址，并在 API 服务中将 CORS 白名单限制为实际前端域名。
+
+## ✅ 测试
+
+标准环境中执行：
+
+```bash
+python -m pytest -q
+```
+
+也可以直接运行现有回归脚本：
+
+```bash
+PYTHONIOENCODING=utf-8 python tests/test_simplex.py
+PYTHONIOENCODING=utf-8 python tests/test_integer_programming.py
+```
+
+CLI 示例：
+
+```bash
+python main.py --example lp_simplex
+python main.py --example gt
+```

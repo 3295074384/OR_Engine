@@ -9,6 +9,7 @@ from matplotlib.patches import Polygon
 _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _root)
 from main import Launcher
+from base_module import to_fraction
 
 def solve_and_visualize():
     launcher = Launcher()
@@ -58,7 +59,7 @@ def solve_and_visualize():
     # 解析顶点转换成 float 画多边形
     pts = []
     for pt in feasible_vertices:
-        pts.append([float(eval(pt["x1"])), float(eval(pt["x2"]))])
+        pts.append([float(to_fraction(pt["x1"])), float(to_fraction(pt["x2"]))])
         
     pts = np.array(pts)
     
@@ -79,7 +80,7 @@ def solve_and_visualize():
     x1_vals = np.linspace(-1, max_x1 + 2, 400)
     
     for L in boundary_lines:
-        a1, a2, d = float(eval(L["a1"])), float(eval(L["a2"])), float(eval(L["d"]))
+        a1, a2, d = (float(to_fraction(L[key])) for key in ("a1", "a2", "d"))
         # a1*x1 + a2*x2 = d
         if a2 != 0:
             x2_vals = (d - a1 * x1_vals) / a2
@@ -94,8 +95,8 @@ def solve_and_visualize():
         plt.plot(pt[0], pt[1], 'ko', markersize=5)
         
     # 醒目地高亮最优解 ⭐
-    opt_x1 = float(eval(solution['x1']))
-    opt_x2 = float(eval(solution['x2']))
+    opt_x1 = float(to_fraction(solution['x1']))
+    opt_x2 = float(to_fraction(solution['x2']))
     plt.plot(opt_x1, opt_x2, marker='*', markersize=20, color='red', label=f'Optimal: ({opt_x1}, {opt_x2}), Z={opt_val}')
     
     plt.xlim(-0.5, max_x1)
