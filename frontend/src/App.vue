@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 import { RotateCcw, Play, LoaderCircle, Zap, Activity, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-vue-next'
 import SimplexTableau from './components/SimplexTableau.vue'
+import LpEditor from './components/LpEditor.vue'
+import MatrixEditor from './components/MatrixEditor.vue'
 import { useSolverStore, type Panel } from './stores'
 
 const store = useSolverStore()
@@ -92,27 +94,28 @@ const resultMetricCount = computed(() => {
         <template v-if="isLP || isIP">
           <div class="field-label objective-label">目标函数 <span>方向</span></div>
           <div class="objective"><button :class="{ selected: store.objective === 'max' }" @click="store.objective = 'max'">最大化</button><button :class="{ selected: store.objective === 'min' }" @click="store.objective = 'min'">最小化</button></div>
-          <label class="field-label">目标系数 <span>c</span><input v-model="store.form.c" spellcheck="false" /></label>
-          <label class="field-label">约束矩阵 <span>A · 每行一组</span><textarea v-model="store.form.A" rows="4" spellcheck="false" /></label>
-          <label class="field-label">右端项 <span>b</span><input v-model="store.form.b" spellcheck="false" /></label>
-          <label class="field-label">约束符号 <span>逗号分隔</span><input v-model="store.form.constraint_types" spellcheck="false" /></label>
-          <label v-if="isIP" class="field-label">整数变量 <span>x1, x2</span><input v-model="store.form.integer_vars" spellcheck="false" /></label>
+          <LpEditor :model="store.form" :isIP="isIP" @set-n="store.setNVars" @add-constraint="store.addConstraint" @remove-constraint="store.removeConstraint" />
         </template>
 
         <template v-else-if="isTP">
-          <label class="field-label">产量 <span>supply</span><input v-model="store.form.supply" spellcheck="false" /></label>
-          <label class="field-label">销量 <span>demand</span><input v-model="store.form.demand" spellcheck="false" /></label>
-          <label class="field-label">运价矩阵 <span>cost · 每行一组</span><textarea v-model="store.form.cost" rows="4" spellcheck="false" /></label>
+          <div class="block-label">产量（supply）</div>
+          <div class="list-editor"><input v-for="(v, i) in store.form.supply" :key="i" v-model="store.form.supply[i]" spellcheck="false" /></div>
+          <div class="block-label">销量（demand）</div>
+          <div class="list-editor"><input v-for="(v, i) in store.form.demand" :key="i" v-model="store.form.demand[i]" spellcheck="false" /></div>
+          <div class="block-label">运价矩阵（cost）</div>
+          <MatrixEditor :rows="store.form.cost" label="cost" @add-row="store.addRow('cost')" @remove-row="store.removeRow('cost', $event)" @add-col="store.addCol('cost')" @remove-col="store.removeCol('cost', $event)" />
         </template>
 
         <template v-else-if="isAP">
           <div class="field-label objective-label">目标函数 <span>方向</span></div>
           <div class="objective"><button :class="{ selected: store.objective === 'min' }" @click="store.objective = 'min'">最小化</button><button :class="{ selected: store.objective === 'max' }" @click="store.objective = 'max'">最大化</button></div>
-          <label class="field-label">成本/收益矩阵 <span>每行一组</span><textarea v-model="store.form.cost_matrix" rows="4" spellcheck="false" /></label>
+          <div class="block-label">成本/收益矩阵</div>
+          <MatrixEditor :rows="store.form.cost_matrix" label="矩阵" @add-row="store.addRow('cost_matrix')" @remove-row="store.removeRow('cost_matrix', $event)" @add-col="store.addCol('cost_matrix')" @remove-col="store.removeCol('cost_matrix', $event)" />
         </template>
 
         <template v-else-if="isGT">
-          <label class="field-label">行玩家收益矩阵 <span>payoff · 每行一组</span><textarea v-model="store.form.payoff_matrix" rows="3" spellcheck="false" /></label>
+          <div class="block-label">行玩家收益矩阵</div>
+          <MatrixEditor :rows="store.form.payoff_matrix" label="payoff" @add-row="store.addRow('payoff_matrix')" @remove-row="store.removeRow('payoff_matrix', $event)" @add-col="store.addCol('payoff_matrix')" @remove-col="store.removeCol('payoff_matrix', $event)" />
         </template>
 
         <div class="actions">

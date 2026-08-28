@@ -9,25 +9,64 @@ export type LpMethod = 'graphical' | 'simplex'
 export interface SolverResponse { status: string; problem_type?: string; sub_type?: string; objective?: { sense?: string; value?: { display?: string; decimal?: number } | string | number }; solution?: Record<string, unknown>; iterations?: Iteration[]; diagnostics?: { elapsed_ms?: number; total_steps?: number; error_message?: string | null }; final_result?: Record<string, any>; error_message?: string | null }
 export interface Iteration { step?: number; action?: string; calculation?: string | string[]; state_matrix?: Record<string, any> }
 
-interface FormState { c: string; A: string; b: string; constraint_types: string; integer_vars: string; variable_names: string; supply: string; demand: string; cost: string; cost_matrix: string; payoff_matrix: string }
-
-const BASE_LP: Partial<FormState> = { c: '3, 5', A: '1, 0\n0, 1\n3, 2', b: '4, 3, 12', constraint_types: '<=, <=, <=', variable_names: 'x1, x2' }
-const BASE_IP: Partial<FormState> = { c: '3, 5', A: '1, 0\n0, 1\n3, 2', b: '4, 3, 12', constraint_types: '<=, <=, <=', variable_names: 'x1, x2', integer_vars: 'x1, x2' }
-const BASE_TP: Partial<FormState> = { supply: '30, 40, 50', demand: '25, 35, 40, 20', cost: '2, 3, 11, 7\n1, 0, 6, 1\n5, 8, 15, 9' }
-const BASE_AP: Partial<FormState> = { cost_matrix: '9, 2, 7, 8\n6, 4, 3, 7\n5, 8, 1, 8\n7, 6, 9, 4' }
-const BASE_GT: Partial<FormState> = { payoff_matrix: '3, -1\n-2, 4' }
-
-interface PanelConfig { problemType: ProblemType; lpMethod?: LpMethod; defaults: Partial<FormState>; title: string }
-const PANELS: Record<Panel, PanelConfig> = {
-  lp_graphical: { problemType: 'LP', lpMethod: 'graphical', defaults: BASE_LP, title: '线性规划（图解法）' },
-  lp_simplex: { problemType: 'LP', lpMethod: 'simplex', defaults: BASE_LP, title: '线性规划（单纯形法）' },
-  ip: { problemType: 'IP', defaults: BASE_IP, title: '整数规划' },
-  tp: { problemType: 'TP', defaults: BASE_TP, title: '运输问题' },
-  ap: { problemType: 'AP', defaults: BASE_AP, title: '指派问题' },
-  gt: { problemType: 'GT', defaults: BASE_GT, title: '博弈论' },
+export interface ConstraintRow { coeffs: string[]; sign: string; rhs: string }
+export interface ModelForm {
+  nVars: number
+  c: string[]
+  integer: boolean[]
+  constraints: ConstraintRow[]
+  supply: string[]
+  demand: string[]
+  cost: string[][]
+  cost_matrix: string[][]
+  payoff_matrix: string[][]
 }
 
-const EMAIL_EMPTY = { c: '', A: '', b: '', constraint_types: '', integer_vars: '', variable_names: '', supply: '', demand: '', cost: '', cost_matrix: '', payoff_matrix: '' }
+function makeRows(nVars: number, count: number): ConstraintRow[] {
+  return Array.from({ length: count }, () => ({ coeffs: Array.from({ length: nVars }, (_, i) => String(i % 2 === 0 ? 1 : 1)), sign: '<=', rhs: '10' }))
+}
+
+function makeMatrix(rows: number, cols: number): string[][] {
+  return Array.from({ length: rows }, () => Array.from({ length: cols }, () => '1'))
+}
+
+function linearModel(nVars: number): ModelForm {
+  return {
+    nVars,
+    c: Array.from({ length: nVars }, (_, i) => String(i === 0 ? 3 : 5)),
+    integer: Array.from({ length: nVars }, () => true),
+    constraints: makeRows(nVars, 2),
+    supply: ['30', '40', '50'],
+    demand: ['25', '35', '40', '20'],
+    cost: makeMatrix(3, 4),
+    cost_matrix: makeMatrix(4, 4),
+    payoff_matrix: makeMatrix(2, 2),
+  }
+}
+
+interface PanelConfig { problemType: ProblemType; lpMethod?: LpMethod; model: ModelForm; title: string }
+const PANELS: Record<Panel, PanelConfig> = {
+  lp_graphical: { problemType: 'LP', lpMethod: 'graphical', model: linearModel(2), title: '线性规划（图解法）' },
+  lp_simplex: { problemType: 'LP', lpMethod: 'simplex', model: linearModel(2), title: '线性规划（单纯形法）' },
+  ip: { problemType: 'IP', model: linearModel(2), title: '整数规划' },
+  tp: { problemType: 'TP', model: linearModel(3), title: '运输问题' },
+  ap: { problemType: 'AP', model: linearModel(4), title: '指派问题' },
+  gt: { problemType: 'GT', model: linearModel(2), title: '博弈论' },
+}
+
+function cloneForm(m: ModelForm): ModelForm {
+  return {
+    nVars: m.nVars,
+    c: [...m.c],
+    integer: [...m.integer],
+    constraints: m.constraints.map((r) => ({ coeffs: [...r.coeffs], sign: r.sign, rhs: r.rhs })),
+    supply: [...m.supply],
+    demand: [...m.demand],
+    cost: m.cost.map((r) => [...r]),
+    cost_matrix: m.cost_matrix.map((r) => [...r]),
+    payoff_matrix: m.payoff_matrix.map((r) => [...r]),
+  }
+}
 
 function toNumber(token: string): number {
   const t = token.trim()
@@ -36,12 +75,16 @@ function toNumber(token: string): number {
   return Number(t)
 }
 
+function validList(tokens: string[]): boolean {
+  return tokens.length > 0 && tokens.every((token) => Number.isFinite(toNumber(token)))
+}
+
 export const useSolverStore = defineStore('solver', () => {
   const panel = ref<Panel>('lp_simplex')
   const config = computed(() => PANELS[panel.value])
   const problemType = computed<ProblemType>(() => config.value.problemType)
   const objective = ref<'max' | 'min'>('max')
-  const form = ref<FormState>({ ...EMAIL_EMPTY, ...PANELS.lp_simplex.defaults })
+  const form = ref<ModelForm>(cloneForm(PANELS.lp_simplex.model))
   const loading = ref(false)
   const error = ref('')
   const result = ref<SolverResponse | null>(null)
@@ -50,65 +93,80 @@ export const useSolverStore = defineStore('solver', () => {
 
   function selectPanel(next: Panel) {
     panel.value = next
-    form.value = { ...EMAIL_EMPTY, ...PANELS[next].defaults }
+    form.value = cloneForm(PANELS[next].model)
     objective.value = PANELS[next].problemType === 'AP' ? 'min' : 'max'
     error.value = ''
     loading.value = false
   }
 
-  function reset() {
-    error.value = ''
-    loading.value = false
-    const keep = result.value && selectedStep.value
-    if (!keep) result.value = null
+  function resetForm() { form.value = cloneForm(PANELS[panel.value].model) }
+
+  function setNVars(n: number) {
+    const count = Math.max(2, Math.min(20, Math.floor(n) || 2))
+    form.value.nVars = count
+    form.value.c = Array.from({ length: count }, (_, i) => form.value.c[i] ?? '1')
+    form.value.integer = Array.from({ length: count }, (_, i) => form.value.integer[i] ?? true)
+    form.value.constraints.forEach((row) => {
+      row.coeffs = Array.from({ length: count }, (_, i) => row.coeffs[i] ?? '1')
+    })
   }
 
-  function parseList(value: string, field: string): string[] {
-    const tokens = value.split(',').map((x) => x.trim()).filter(Boolean)
-    if (!tokens.length || tokens.some((token) => !Number.isFinite(toNumber(token)))) throw new Error(`${field} 包含无效数值`)
-    return tokens
+  function addConstraint() {
+    form.value.constraints.push({ coeffs: Array.from({ length: form.value.nVars }, () => '1'), sign: '<=', rhs: '10' })
+  }
+  function removeConstraint(i: number) { form.value.constraints.splice(i, 1) }
+
+  function addRow(key: 'cost' | 'cost_matrix' | 'payoff_matrix') {
+    const cols = form.value[key][0]?.length ?? form.value[key].length
+    form.value[key].push(Array.from({ length: cols }, () => '1'))
+  }
+  function removeRow(key: 'cost' | 'cost_matrix' | 'payoff_matrix', i: number) { if (form.value[key].length > 1) form.value[key].splice(i, 1) }
+  function addCol(key: 'cost' | 'cost_matrix' | 'payoff_matrix') {
+    form.value[key].forEach((row) => row.push('1'))
+  }
+  function removeCol(key: 'cost' | 'cost_matrix' | 'payoff_matrix', i: number) { if ((form.value[key][0]?.length ?? 0) > 1) form.value[key].forEach((row) => row.splice(i, 1)) }
+
+  function parseList(tokens: string[], field: string): string[] {
+    if (!validList(tokens)) throw new Error(`${field} 包含无效数值`)
+    return tokens.map((t) => t.trim())
   }
 
-  function parseMatrix(value: string, field: string): string[][] {
-    const rows = value.split('\n').map((line) => line.split(',').map((x) => x.trim()).filter(Boolean)).filter((row) => row.length)
+  function parseMatrix(rows: string[][], field: string): string[][] {
     const width = rows[0]?.length ?? 0
     if (!width || rows.some((row) => row.length !== width)) throw new Error(`${field} 各行列数必须一致`)
     if (rows.some((row) => row.some((cell) => !Number.isFinite(toNumber(cell))))) throw new Error(`${field} 包含无效数值`)
-    return rows
-  }
-
-  function parseVariableNames(value: string, count: number): string[] | undefined {
-    const tokens = value.split(',').map((x) => x.trim()).filter(Boolean)
-    if (!tokens.length) return undefined
-    if (tokens.length !== count) throw new Error('变量名数量必须与 c 一致')
-    return tokens
+    return rows.map((row) => row.map((cell) => cell.trim()))
   }
 
   function buildPayload(): Record<string, unknown> {
     const pt = problemType.value
     if (pt === 'LP' || pt === 'IP') {
       const c = parseList(form.value.c, 'c')
-      const A = parseMatrix(form.value.A, '约束矩阵')
-      const b = parseList(form.value.b, 'b')
-      const constraint_types = parseList(form.value.constraint_types, '约束符号')
-      if (c.length !== A[0].length || b.length !== A.length || constraint_types.length !== A.length) throw new Error('c、A、b 和约束符号的维度必须匹配')
-      if (constraint_types.some((x) => !['<=', '>=', '='].includes(x))) throw new Error('约束符号必须为 <=、>= 或 =')
-      const payload: Record<string, unknown> = { objective: objective.value, c, A, b, constraint_types }
-      const vn = parseVariableNames(form.value.variable_names, c.length)
-      if (vn) payload.variable_names = vn
+      const b = form.value.constraints.map((row) => parseList([row.rhs], 'b')[0])
+      const constraint_types = form.value.constraints.map((row) => row.sign)
+      const A = form.value.constraints.map((row) => parseList(row.coeffs, '约束矩阵'))
+      if (c.length !== A[0].length || constraint_types.some((x) => !['<=', '>=', '='].includes(x))) throw new Error('c、A、b 和约束符号的维度必须匹配')
+      const payload: Record<string, unknown> = {
+        objective: objective.value,
+        c,
+        A,
+        b,
+        constraint_types,
+        variable_names: form.value.c.map((_, i) => `x${i + 1}`),
+      }
       if (pt === 'IP') {
-        const integer_vars = parseList(form.value.integer_vars.replace(/,/g, ' '), '整数变量').map((x) => {
-          const match = /^x(\d+)$/i.exec(x)
-          if (!match) throw new Error('整数变量必须使用 x1、x2 等名称')
-          return Number(match[1]) - 1
-        })
-        if (integer_vars.some((index) => index < 0 || index >= c.length)) throw new Error('整数变量超出变量范围')
+        const integer_vars = form.value.integer.map((flag, i) => (flag ? i : -1)).filter((i) => i >= 0)
+        if (integer_vars.length === 0) throw new Error('整数规划至少需要选取一个整数变量')
         payload.integer_vars = integer_vars
       }
       return payload
     }
     if (pt === 'TP') {
-      return { supply: parseList(form.value.supply, '产量'), demand: parseList(form.value.demand, '销量'), cost: parseMatrix(form.value.cost, '运价矩阵') }
+      return {
+        supply: parseList(form.value.supply, '产量'),
+        demand: parseList(form.value.demand, '销量'),
+        cost: parseMatrix(form.value.cost, '运价矩阵'),
+      }
     }
     if (pt === 'AP') {
       return { objective: objective.value, cost_matrix: parseMatrix(form.value.cost_matrix, '成本矩阵') }
@@ -132,5 +190,5 @@ export const useSolverStore = defineStore('solver', () => {
     finally { loading.value = false }
   }
 
-  return { panel, selectPanel, problemType, config, objective, form, loading, error, result, iterations, selectedStep, reset, solve }
+  return { panel, selectPanel, problemType, config, objective, form, loading, error, result, iterations, selectedStep, resetForm, setNVars, addConstraint, removeConstraint, addRow, removeRow, addCol, removeCol, solve }
 })
