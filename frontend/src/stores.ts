@@ -37,7 +37,9 @@ export const useSolverStore = defineStore('solver', () => {
         if (integer_vars.some((index) => index < 0 || index >= c.length)) throw new Error('整数变量超出变量范围')
         payload.integer_vars = integer_vars
       }
-      const response = await fetch(`${import.meta.env.VITE_API_BASE ?? ''}/api/solve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ problem_type: problemType.value, payload }) })
+      const request: Record<string, unknown> = { problem_type: problemType.value, payload }
+      if (problemType.value === 'LP') request.sub_type = 'simplex'
+      const response = await fetch(`${import.meta.env.VITE_API_BASE ?? ''}/api/solve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request) })
       const body = await response.text()
       let data: SolverResponse & { detail?: Array<{ msg?: string }> }
       try { data = body ? JSON.parse(body) : {} as SolverResponse } catch { throw new Error('服务器返回了无效响应') }

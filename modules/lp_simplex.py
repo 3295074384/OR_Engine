@@ -103,25 +103,24 @@ class SimplexModule(BaseModule):
 
     def _phase(self, A, b, basis, names, costs, phase, limit, start=0):
         sigma, z = self._reduced_costs(A, b, basis, costs)
-        self._snapshot(start, A, b, basis, names, costs, sigma, z, phase)
-        for step in range(1, limit + 1):
+        for offset in range(limit + 1):
             entering = next((j for j, value in enumerate(sigma) if value > 0), None)
             if entering is None:
-                self._snapshot(start + step, A, b, basis, names, costs, sigma, z, phase, optimal=True)
+                self._snapshot(start + offset, A, b, basis, names, costs, sigma, z, phase, optimal=True)
                 return {"status": STATUS_OPTIMAL, "A": A, "b": b, "basis": basis,
-                    "sigma": sigma, "z": z, "steps": start + step}
+                    "sigma": sigma, "z": z, "steps": start + offset}
             theta = [b[i] / A[i][entering] if A[i][entering] > 0 else None for i in range(len(b))]
             leaving = min((i for i, value in enumerate(theta) if value is not None), key=lambda i: (theta[i], i), default=None)
             if leaving is None:
-                self._snapshot(start + step, A, b, basis, names, costs, sigma, z, phase,
+                self._snapshot(start + offset, A, b, basis, names, costs, sigma, z, phase,
                     entering, theta, unbounded=True)
                 return {"status": STATUS_UNBOUNDED}
             leaving_var = basis[leaving]
             pivot_value = A[leaving][entering]
+            self._snapshot(start + offset, A, b, basis, names, costs, sigma, z, phase,
+                entering, theta, leaving_var, pivot_value)
             self._pivot(A, b, basis, leaving, entering)
             sigma, z = self._reduced_costs(A, b, basis, costs)
-            self._snapshot(start + step, A, b, basis, names, costs, sigma, z, phase,
-                entering, theta, leaving_var, pivot_value)
         return {"status": STATUS_MAX_ITER_REACHED}
 
     @staticmethod
@@ -142,11 +141,13 @@ class SimplexModule(BaseModule):
         return [costs[j] - zj[j] for j in range(len(costs))], sum(cb[i] * b[i] for i in range(len(b)))
 
     def _dto(self, A, b, basis, names, costs, sigma, z, phase, theta=None, pivot=None, optimal=False, unbounded=False):
+        cb = [costs[j] for j in basis]
+        zj = [sum(cb[i] * A[i][j] for i in range(len(A))) for j in range(len(costs))]
         return {"type": "simplex_tableau", "phase": phase, "var_names": list(names), "c_j": list(costs),
-            "basis_indices": list(basis), "basis_var_names": [names[j] for j in basis],
-            "c_b": [costs[j] for j in basis], "b": list(b), "matrix_a": [list(row) for row in A],
-            "sigma": list(sigma), "current_z": z, "theta": theta, "pivot": pivot,
-            "is_optimal": optimal, "is_unbounded": unbounded}
+            "basis_indices": list(basis), "basis_var_names": [names[j] for j in basis], "x_b": [names[j] for j in basis],
+            "c_b": cb, "b": list(b), "matrix_a": [list(row) for row in A], "z_j": zj,
+            "sigma": list(sigma), "current_z": z, "z": z, "theta": theta, "pivot": pivot,
+            "is_optimal": optimal, "is_unbounded": unbounded, "snapshot_stage": "terminal" if optimal or unbounded else "before_pivot"}
 
     def _snapshot(self, step, A, b, basis, names, costs, sigma, z, phase, entering=None,
                   theta=None, leaving=None, pivot_value=None, optimal=False, unbounded=False):
