@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { RotateCcw, Play, LoaderCircle, Zap, Activity, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
+import { RotateCcw, Play, LoaderCircle, Zap, Activity, CheckCircle2, AlertTriangle, ChevronRight, ChevronDown } from 'lucide-vue-next'
 import SimplexTableau from './components/SimplexTableau.vue'
 import LpEditor from './components/LpEditor.vue'
 import MatrixEditor from './components/MatrixEditor.vue'
@@ -8,6 +8,8 @@ import { useSolverStore, type Panel } from './stores'
 
 const store = useSolverStore()
 const current = computed(() => store.iterations[store.selectedStep])
+const drawerOpen = ref(true)
+const activePanelLabel = computed(() => store.config?.title ?? '')
 
 const panels: Array<{ key: Panel; label: string }> = [
   { key: 'lp_graphical', label: '线性规划（图解法）' },
@@ -80,50 +82,57 @@ const resultMetricCount = computed(() => {
       <div class="brand"><div class="brand-mark"><Zap :size="18" /></div><div><strong>OR / ENGINE</strong><span>运筹学推演工作台</span></div></div>
       <div class="header-status"><i></i> API 正常 <span>v0.1</span></div>
     </header>
-    <div class="workspace">
-      <aside class="sidebar">
-        <div class="eyebrow">模型定义 <span>01</span></div>
-        <h1>构建你的<br /><em>优化问题。</em></h1>
-        <p class="lede">配置精确的优化模型，跟随引擎回放每一步计算。</p>
+    <div class="workspace" :class="{ 'drawer-open': drawerOpen, 'drawer-collapsed': !drawerOpen }">
+      <div class="input-drawer">
+        <button class="drawer-handle" @click="drawerOpen = !drawerOpen">
+          <div class="drawer-handle-left">
+            <div class="eyebrow">模型定义 <span>01</span></div>
+            <span class="drawer-title">{{ activePanelLabel }}</span>
+          </div>
+          <div class="drawer-handle-right"><ChevronDown :size="18" class="drawer-caret" /><span class="drawer-hint">{{ drawerOpen ? '收起配置' : '展开配置' }}</span></div>
+        </button>
+        <div v-show="drawerOpen" class="drawer-body">
+          <p class="lede">配置精确的优化模型，跟随引擎回放每一步计算。</p>
 
-        <div class="field-label">问题类型</div>
-        <div class="panel-nav">
-          <button v-for="p in panels" :key="p.key" :class="{ active: store.panel === p.key }" @click="store.selectPanel(p.key)">{{ p.label }}</button>
+          <div class="field-label">问题类型</div>
+          <div class="panel-nav">
+            <button v-for="p in panels" :key="p.key" :class="{ active: store.panel === p.key }" @click="store.selectPanel(p.key)">{{ p.label }}</button>
+          </div>
+
+          <template v-if="isLP || isIP">
+            <div class="field-label objective-label">目标函数 <span>方向</span></div>
+            <div class="objective"><button :class="{ selected: store.objective === 'max' }" @click="store.objective = 'max'">最大化</button><button :class="{ selected: store.objective === 'min' }" @click="store.objective = 'min'">最小化</button></div>
+            <LpEditor :model="store.form" :isIP="isIP" @set-n="store.setNVars" @add-constraint="store.addConstraint" @remove-constraint="store.removeConstraint" />
+          </template>
+
+          <template v-else-if="isTP">
+            <div class="block-label">产量（supply）</div>
+            <div class="list-editor"><input v-for="(v, i) in store.form.supply" :key="i" v-model="store.form.supply[i]" spellcheck="false" /></div>
+            <div class="block-label">销量（demand）</div>
+            <div class="list-editor"><input v-for="(v, i) in store.form.demand" :key="i" v-model="store.form.demand[i]" spellcheck="false" /></div>
+            <div class="block-label">运价矩阵（cost）</div>
+            <MatrixEditor :rows="store.form.cost" label="cost" @add-row="store.addRow('cost')" @remove-row="store.removeRow('cost', $event)" @add-col="store.addCol('cost')" @remove-col="store.removeCol('cost', $event)" />
+          </template>
+
+          <template v-else-if="isAP">
+            <div class="field-label objective-label">目标函数 <span>方向</span></div>
+            <div class="objective"><button :class="{ selected: store.objective === 'min' }" @click="store.objective = 'min'">最小化</button><button :class="{ selected: store.objective === 'max' }" @click="store.objective = 'max'">最大化</button></div>
+            <div class="block-label">成本/收益矩阵</div>
+            <MatrixEditor :rows="store.form.cost_matrix" label="矩阵" @add-row="store.addRow('cost_matrix')" @remove-row="store.removeRow('cost_matrix', $event)" @add-col="store.addCol('cost_matrix')" @remove-col="store.removeCol('cost_matrix', $event)" />
+          </template>
+
+          <template v-else-if="isGT">
+            <div class="block-label">行玩家收益矩阵</div>
+            <MatrixEditor :rows="store.form.payoff_matrix" label="payoff" @add-row="store.addRow('payoff_matrix')" @remove-row="store.removeRow('payoff_matrix', $event)" @add-col="store.addCol('payoff_matrix')" @remove-col="store.removeCol('payoff_matrix', $event)" />
+          </template>
+
+          <div class="actions">
+            <button class="run" :disabled="store.loading" @click="store.solve"><LoaderCircle v-if="store.loading" class="spin" :size="17" /><Play v-else :size="17" /> {{ store.loading ? '求解中' : '开始求解' }}</button>
+            <button class="reset" title="重置" @click="store.reset"><RotateCcw :size="17" /></button>
+          </div>
+          <p v-if="store.error" class="error"><AlertTriangle :size="15" /> {{ store.error }}</p>
         </div>
-
-        <template v-if="isLP || isIP">
-          <div class="field-label objective-label">目标函数 <span>方向</span></div>
-          <div class="objective"><button :class="{ selected: store.objective === 'max' }" @click="store.objective = 'max'">最大化</button><button :class="{ selected: store.objective === 'min' }" @click="store.objective = 'min'">最小化</button></div>
-          <LpEditor :model="store.form" :isIP="isIP" @set-n="store.setNVars" @add-constraint="store.addConstraint" @remove-constraint="store.removeConstraint" />
-        </template>
-
-        <template v-else-if="isTP">
-          <div class="block-label">产量（supply）</div>
-          <div class="list-editor"><input v-for="(v, i) in store.form.supply" :key="i" v-model="store.form.supply[i]" spellcheck="false" /></div>
-          <div class="block-label">销量（demand）</div>
-          <div class="list-editor"><input v-for="(v, i) in store.form.demand" :key="i" v-model="store.form.demand[i]" spellcheck="false" /></div>
-          <div class="block-label">运价矩阵（cost）</div>
-          <MatrixEditor :rows="store.form.cost" label="cost" @add-row="store.addRow('cost')" @remove-row="store.removeRow('cost', $event)" @add-col="store.addCol('cost')" @remove-col="store.removeCol('cost', $event)" />
-        </template>
-
-        <template v-else-if="isAP">
-          <div class="field-label objective-label">目标函数 <span>方向</span></div>
-          <div class="objective"><button :class="{ selected: store.objective === 'min' }" @click="store.objective = 'min'">最小化</button><button :class="{ selected: store.objective === 'max' }" @click="store.objective = 'max'">最大化</button></div>
-          <div class="block-label">成本/收益矩阵</div>
-          <MatrixEditor :rows="store.form.cost_matrix" label="矩阵" @add-row="store.addRow('cost_matrix')" @remove-row="store.removeRow('cost_matrix', $event)" @add-col="store.addCol('cost_matrix')" @remove-col="store.removeCol('cost_matrix', $event)" />
-        </template>
-
-        <template v-else-if="isGT">
-          <div class="block-label">行玩家收益矩阵</div>
-          <MatrixEditor :rows="store.form.payoff_matrix" label="payoff" @add-row="store.addRow('payoff_matrix')" @remove-row="store.removeRow('payoff_matrix', $event)" @add-col="store.addCol('payoff_matrix')" @remove-col="store.removeCol('payoff_matrix', $event)" />
-        </template>
-
-        <div class="actions">
-          <button class="run" :disabled="store.loading" @click="store.solve"><LoaderCircle v-if="store.loading" class="spin" :size="17" /><Play v-else :size="17" /> {{ store.loading ? '求解中' : '开始求解' }}</button>
-          <button class="reset" title="重置" @click="store.reset"><RotateCcw :size="17" /></button>
-        </div>
-        <p v-if="store.error" class="error"><AlertTriangle :size="15" /> {{ store.error }}</p>
-      </aside>
+      </div>
 
       <section class="results">
         <div class="result-head">
