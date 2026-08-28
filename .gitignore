@@ -8,6 +8,10 @@ __pycache__/
 *$py.class
 *.so
 
+# ----- Frontend dependencies / build output -----
+frontend/node_modules/
+frontend/dist/
+
 # ----- Distribution / packaging -----
 .Python
 build/
