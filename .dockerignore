@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Frontend — not needed by the API image
+frontend/node_modules/
+frontend/dist/
+frontend/src/
+frontend/public/
+
+# VCS & IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Docker / CI
+Dockerfile
+.dockerignore
+render.yaml
+wrangler.toml
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests / samples
+tests/
+_sample/

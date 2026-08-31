@@ -146,6 +146,8 @@ function validList(tokens: string[]): boolean {
   return tokens.length > 0 && tokens.every((token) => Number.isFinite(toNumber(token)))
 }
 
+const apiBase = import.meta.env.VITE_API_BASE ?? ''
+
 export const useSolverStore = defineStore('solver', () => {
   const panel = ref<Panel>('lp_simplex')
   const config = computed(() => PANELS[panel.value])
@@ -299,7 +301,7 @@ export const useSolverStore = defineStore('solver', () => {
         request.sub_type = config.value.lpMethod ?? 'simplex'
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE ?? ''}/api/solve`, {
+      const response = await fetch(`${apiBase}/api/solve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request)
