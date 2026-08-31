@@ -4,7 +4,7 @@ from time import perf_counter
 from typing import Any
 
 from base_module import RationalNumber, rationalize
-from main import EXAMPLES, Launcher
+from main import Launcher
 
 
 _STATUS_TO_SUBTYPE = {
@@ -73,6 +73,52 @@ def solve(request: dict[str, Any]) -> dict[str, Any]:
     started = perf_counter()
     result = Launcher().solve(request)
     return normalize_result(request, result, (perf_counter() - started) * 1000)
+
+
+EXAMPLES: dict[str, dict[str, Any]] = {
+    "lp": {
+        "problem_type": "LP",
+        "sub_type": "graphical",
+        "payload": {
+            "objective": "max",
+            "c": [5, 4],
+            "A": [[6, 4], [1, 2], [0, 1]],
+            "b": [24, 6, 1],
+            "constraint_types": ["<=", "<=", "<="],
+            "variable_names": ["x1", "x2"],
+        },
+    },
+    "lp_simplex": {
+        "problem_type": "LP",
+        "sub_type": "simplex",
+        "payload": {
+            "objective": "max",
+            "c": [2, 3, 0, 0, 0],
+            "A": [[1, 2, 1, 0, 0], [2, 1, 0, 1, 0], [0, 1, 0, 0, 1]],
+            "b": [14, 14, 6],
+            "constraint_types": ["<=", "<=", "<="],
+        },
+    },
+    "tp": {
+        "problem_type": "TP",
+        "payload": {
+            "supply": [30, 40, 50],
+            "demand": [25, 35, 40, 20],
+            "cost": [[2, 3, 11, 7], [1, 0, 6, 1], [5, 8, 15, 9]],
+        },
+    },
+    "ap": {
+        "problem_type": "AP",
+        "payload": {
+            "objective": "min",
+            "cost_matrix": [[9, 2, 7, 8], [6, 4, 3, 7], [5, 8, 1, 8], [7, 6, 9, 4]],
+        },
+    },
+    "gt": {
+        "problem_type": "GT",
+        "payload": {"payoff_matrix": [[3, -1], [-2, 4]]},
+    },
+}
 
 
 def examples() -> dict[str, dict[str, Any]]:
