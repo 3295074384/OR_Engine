@@ -14,8 +14,11 @@ frontend/dist/
 frontend/src/*.js
 frontend/src/**/*.vue.js
 frontend/tsconfig.app.tsbuildinfo
-frontend/vite.config.d.ts
 frontend/tsconfig.node.tsbuildinfo
+frontend/*.tsbuildinfo
+frontend/vite.config.d.ts
+frontend/vite.config.js
+frontend/**/*.tsbuildinfo
 
 # ----- Distribution / packaging -----
 .Python
